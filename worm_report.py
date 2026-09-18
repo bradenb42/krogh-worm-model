@@ -1,6 +1,6 @@
 """Display helpers for the Krogh worm model: unit conversion, tables, plots.
 
-Nothing here is imported by worm_params. All inputs are SI; conversion
+Nothing here is imported by worm_params. Inputs use model units (SI, with pressure in atm); conversion
 happens only at the point of formatting.
 """
 
@@ -14,14 +14,18 @@ from worm_params import WormParams, max_worm_size, o2_profile, r_max, scope, NoA
 def m_to_um(x: float) -> float:
     return x * 1e6
 
+
 def m_to_mm(x: float) -> float:
     return x * 1e3
+
 
 def molm3_to_mM(x: float) -> float:
     return x  # 1 mol/m^3 == 1 mmol/L
 
+
 def atm_to_pct(x: float) -> float:
     return x * 100.0
+
 
 def pct_to_atm(x: float) -> float:
     return x / 100.0
@@ -39,12 +43,12 @@ def diameter_cap_rows(
     """
     rows = []
     for pO2 in pO2_values:
-        q = replace(p, pO2=pO2)
+        params = replace(p, pO2=pO2)
         try:
-            cap = r_max(q)
+            cap = r_max(params)
         except NoAerobicSize:
             continue
-        rows.append((atm_to_pct(pO2), molm3_to_mM(q.alpha * pO2),
+        rows.append((atm_to_pct(pO2), molm3_to_mM(params.alpha * pO2),
                      m_to_um(cap.R_max), m_to_um(cap.d_max)))
     return rows
 
@@ -53,7 +57,7 @@ def scope_rows(
     p: WormParams,
     pO2_values: Sequence[float] = (0.21, 0.08, 0.01, 0.005),
 ) -> List[Tuple[float, float]]:
-    """(pO2 [%], scope) at R_obs per ambient level. Infeasible levels omitted."""
+    """(pO2 [%], scope) at R_obs per ambient level. Levels with no aerobic size are omitted."""
     rows = []
     for pO2 in pO2_values:
         try:
@@ -110,7 +114,7 @@ def plot_dmax_vs_pO2(
     import matplotlib.pyplot as plt
 
     if pO2_values is None:
-        pO2_values = [0.002 * 1.15 ** i for i in range(35)]  # 0.2% .. ~26%
+        pO2_values = [0.002 * 1.15 ** i for i in range(35)]  # 0.2% .. ~23%
         pO2_values = [v for v in pO2_values if v <= 1.0]
     if ax is None:
         _, ax = plt.subplots()
