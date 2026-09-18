@@ -1,6 +1,26 @@
 import math
+from dataclasses import fields, replace
+from math import inf
+from pathlib import Path
+
 import pytest
-from worm_params import WormParams, r_max, driving_concentration, NoAerobicSize
+
+import worm_params
+from worm_params import (
+    NoAerobicSize,
+    SizeResult,
+    WormParams,
+    driving_concentration,
+    invert_for_tolerance,
+    length_caps,
+    max_worm_size,
+    o2_profile,
+    pO2_min,
+    r_max,
+    resistance,
+    scope,
+    size_envelope,
+)
 
 NOMINAL = WormParams()  # D=2e-9, alpha=1.4, pO2=0.21, q=0.02, C_crit=0, P=inf
 
@@ -46,10 +66,6 @@ def test_no_aerobic_size_raises():
         r_max(WormParams(pO2=0.0))
 
 
-from math import inf
-from worm_params import max_worm_size, o2_profile, invert_for_tolerance, size_envelope
-
-
 def test_scope_equals_ratio_squared_when_P_inf():
     res = max_worm_size(NOMINAL)
     assert res.scope == pytest.approx((res.R_max / NOMINAL.R_obs) ** 2, rel=1e-12)
@@ -63,7 +79,6 @@ def test_scope_below_one_when_R_obs_exceeds_R_max():
 
 
 def test_length_caps():
-    from worm_params import length_caps
     d_max = 4e-4
     L = length_caps(NOMINAL, d_max)
     assert L.L_max_iso == pytest.approx(NOMINAL.AR * d_max)
@@ -78,7 +93,6 @@ def test_length_caps():
 
 
 def test_max_worm_size_uses_length_caps():
-    from worm_params import length_caps
     res = max_worm_size(NOMINAL)
     L = length_caps(NOMINAL, res.d_max)
     assert (res.L_max_iso, res.L_max_neural, res.L_max) == (L.L_max_iso, L.L_max_neural, L.L_max)
@@ -88,13 +102,8 @@ def test_invert_is_exact_inverse_of_r_max():
     for P in (inf, 1e-4, 1e-6):
         p = WormParams(P=P)
         cap = r_max(p).R_max
-        q = replace_R(p, cap)
+        q = replace(p, R_obs=cap)
         assert invert_for_tolerance(q) == pytest.approx(p.pO2, rel=1e-10)
-
-
-def replace_R(p, R):
-    from dataclasses import replace
-    return replace(p, R_obs=R)
 
 
 def test_profile_core_matches_closed_form():
@@ -165,10 +174,6 @@ def test_validation_rejects_bad_inputs():
     WormParams(P=inf)  # allowed
 
 
-from dataclasses import replace
-from worm_params import scope, pO2_min, resistance
-
-
 def test_resistance_shared_helper():
     p = WormParams(P=1e-5)
     R = p.R_obs
@@ -203,8 +208,6 @@ def test_pO2_min_independent_of_current_pO2():
 
 
 def test_result_record_fields_and_composition():
-    from dataclasses import fields
-    from worm_params import SizeResult, length_caps
     names = [f.name for f in fields(SizeResult)]
     assert names == ["R_max", "d_max", "L_max_iso", "L_max_neural", "L_max", "scope", "pO2_min"]
     res = max_worm_size(NOMINAL)
@@ -223,6 +226,5 @@ def test_max_worm_size_prints_nothing(capsys):
 
 
 def test_report_module_not_imported_by_model():
-    import worm_params
-    src = open(worm_params.__file__).read()
+    src = Path(worm_params.__file__).read_text(encoding="utf-8")
     assert "worm_report" not in src and "matplotlib" not in src
