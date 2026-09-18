@@ -3,7 +3,7 @@
 Parameter record (WormParams), driving concentration, radius cap (r_max), length caps
 (length_caps), metabolic headroom (scope), minimum tolerable ambient O2 for a
 given geometry (pO2_min), the combined result (max_worm_size), radial O2
-profile (o2_profile), and a pO2 x q sweep (size_envelope). SI units throughout.
+profile (o2_profile), and a pO2 x q sweep (size_envelope). SI units except pressure, which is in atm.
 """
 
 from dataclasses import dataclass, field, replace
@@ -21,7 +21,7 @@ __all__ = [
 class WormParams:
     """All inputs to max_worm_size, o2_profile and invert_for_tolerance.
 
-    Units are SI throughout. P = inf means no cuticle resistance; every
+    Units are SI except pressure, which is in atm. P = inf means no cuticle resistance; every
     formula uses R / (2 * P), which evaluates to 0.0 for P = inf.
     """
 
@@ -50,15 +50,15 @@ class WormParams:
             raise ValueError(f"pO2 must be in [0, 1] atm, got {self.pO2!r}")
 
     def cuticle_resistance(self, R: float) -> float:
-        """R / (2 P) [s/m]. Returns 0.0 when P is inf."""
+        """R / (2 P) [s]. Returns 0.0 when P is inf."""
         return R / (2.0 * self.P)
 
     def diffusion_resistance(self, R: float) -> float:
-        """R^2 / (4 D) [s/m]."""
+        """R^2 / (4 D) [s]."""
         return R * R / (4.0 * self.D)
 
     def resistance(self, R: float) -> float:
-        """Total series resistance R^2/(4D) + R/(2P) [s/m]."""
+        """Total series resistance R^2/(4D) + R/(2P) [s]."""
         return self.diffusion_resistance(R) + self.cuticle_resistance(R)
 
 
@@ -75,8 +75,8 @@ class Driving:
 def driving_concentration(p: WormParams) -> Driving:
     """Return C_amb = alpha * pO2 and dC = C_amb - C_crit.
 
-    Raises NoAerobicSize when dC <= 0. All size, profile and inversion
-    functions obtain C_amb and dC from here.
+    Raises NoAerobicSize when dC <= 0. Radius, scope and profile
+    calculations obtain C_amb and dC from here.
     """
     C_amb = p.alpha * p.pO2
     dC = C_amb - p.C_crit
@@ -196,7 +196,7 @@ def o2_profile(R: float, p: WormParams, N: int = 100) -> Profile:
 
 
 def resistance(p: WormParams, R: float) -> float:
-    """R^2/(4D) + R/(2P) [s/m]. Shared by scope and pO2_min."""
+    """R^2/(4D) + R/(2P) [s]. Shared by scope and pO2_min."""
     return p.resistance(R)
 
 
@@ -221,7 +221,7 @@ def pO2_min(p: WormParams) -> float:
     return (p.q * resistance(p, p.R_obs) + p.C_crit) / p.alpha
 
 
-invert_for_tolerance = pO2_min  # earlier name
+invert_for_tolerance = pO2_min  # backward-compatible alias
 
 
 def size_envelope(
