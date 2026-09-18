@@ -6,13 +6,15 @@ Computes the largest body diameter a nematode can sustain by radial O2 diffusion
 
 | File | Contents |
 | --- | --- |
-| `krogh_worm_model.md` | The model: derivation, parameter values, predicted numbers |
-| `worm_params.py` | Parameter record and all numeric functions |
-| `worm_report.py` | Unit conversion, the tables from §7 of the doc, plots |
-| `test_worm_params.py` | Unit tests for each function |
-| `test_regression_doc.py` | Every number in §7 and §8 of the doc, to two significant figures |
+| [krogh_worm_model.md](krogh_worm_model.md) | The model: derivation, parameter values, predicted numbers |
+| [worm_params.py](worm_params.py) | Parameter record and all numeric functions |
+| [worm_report.py](worm_report.py) | Unit conversion, the tables from §7 of the doc, plots |
+| [test_worm_params.py](test_worm_params.py) | Unit tests for each function |
+| [test_regression_doc.py](test_regression_doc.py) | Nominal results in §7–§8 and scaling checks from §9 |
 
 ## Quick start
+
+Requires Python 3.10 or newer. Run the examples from the repository root.
 
 ```python
 from worm_params import WormParams, max_worm_size
@@ -25,7 +27,7 @@ r.scope        # 36.6      (q can rise 37x before the core goes anoxic)
 r.pO2_min      # 0.0022 atm (lowest ambient O2 the observed radius tolerates)
 ```
 
-All inputs and outputs are SI: m, s, mol m⁻³, atm. Convert only for display, via `worm_report`.
+Lengths, times, and concentrations use SI units (m, s, mol m⁻³); oxygen partial pressure uses atm. Convert only for display, via `worm_report`.
 
 ## Parameters
 
@@ -44,14 +46,14 @@ All inputs and outputs are SI: m, s, mol m⁻³, atm. Convert only for display, 
 | `k` | 1 | 2 | `L_max_neural = k * lam` |
 | `R_obs` | m | 35e-6 | observed body radius |
 
-Validation runs in `__post_init__`. `P = inf` is the only non-finite value accepted; every formula uses `R / (2P)`, which is `0.0` for `P = inf`, so there is no branching on the cuticle.
+Validation runs in `__post_init__`. `P = inf` is the only non-finite value accepted; every formula uses `R / (2P)`, which is `0.0` for `P = inf`, so the resistance helpers need no special case for an infinitely permeable cuticle.
 
 ## Functions
 
-All take a `WormParams` and raise `NoAerobicSize` when `C_amb − C_crit ≤ 0`.
+All take a `WormParams`. `driving_concentration`, `r_max`, `scope`, `max_worm_size`, and `o2_profile` raise `NoAerobicSize` when `C_amb − C_crit ≤ 0`. `size_envelope` records those cases as `None`; `resistance`, `length_caps`, and `pO2_min` do not require positive driving concentration.
 
 - `driving_concentration(p)` → `Driving(C_amb, dC)`. The one place `alpha * pO2` and `C_amb − C_crit` are computed.
-- `resistance(p, R)` = `R²/(4D) + R/(2P)`, in s m⁻¹. Shared by everything below.
+- `resistance(p, R)` = `R²/(4D) + R/(2P)`, in seconds. Shared by everything below.
 - `r_max(p)` → `SizeCap(R_max, d_max)`. Closed form `sqrt(4 D dC / q)` when `P = inf`; otherwise the positive root of `q R²/(4D) + q R/(2P) = dC`, written as `2 dC / (b + sqrt(b² + 4 a dC))` so it is stable as `P → 0`.
 - `length_caps(p, d_max)` → `LengthCaps(L_max_iso, L_max_neural, L_max)`. Takes `d_max` as an argument and does not call `r_max`, so the diameter model can be swapped.
 - `scope(p)` = `dC / (q · resistance(R_obs))`. Equals `(R_max / R_obs)²` when `P = inf`. Below 1 means `R_obs` already exceeds `R_max`.
@@ -61,6 +63,12 @@ All take a `WormParams` and raise `NoAerobicSize` when `C_amb − C_crit ≤ 0`.
 - `size_envelope(p, pO2_values, q_values)` → nested dict of `SizeResult` over a pO2 × q grid, `None` where no aerobic size exists.
 
 ## Display
+
+Tables and summaries use only the standard library. For plots, install matplotlib:
+
+```sh
+python -m pip install matplotlib
+```
 
 ```python
 from worm_report import diameter_cap_table, scope_table, result_summary, plot_dmax_vs_pO2, plot_o2_profiles
@@ -79,12 +87,12 @@ plt.show()
 
 ## Tests
 
-```
-pip install pytest
+```sh
+python -m pip install pytest
 python -m pytest -q
 ```
 
-48 tests. `test_worm_params.py` checks each function against its defining formula, the two branches of `r_max` and their limits, the `pO2_min` round trip, and the profile flags. `test_regression_doc.py` reproduces every figure in §7 and §8 of `krogh_worm_model.md` at nominal parameters and asserts agreement to two significant figures (half a unit in the second digit). A factor-of-2 change to the closed form fails 10 of its 22 tests. If you change the physics on purpose, update the doc and that file together.
+48 tests. `test_worm_params.py` checks each function against its defining formula, the two branches of `r_max` and their limits, the `pO2_min` round trip, and the profile flags. `test_regression_doc.py` checks the tabulated nominal results and selected claims in §7–§9 of `krogh_worm_model.md` at nominal parameters and asserts agreement to two significant figures (half a unit in the second digit). A factor-of-2 change to the closed form fails 10 of its 22 tests. If you change the physics on purpose, update the doc and that file together.
 
 ## Nominal results
 
